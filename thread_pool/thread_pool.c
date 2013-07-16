@@ -10,9 +10,19 @@
 
 #define add_node_to_head(node, head) { (node)->next = head; (head) = (node); }
 #define add_node_to_tail(node, tail) { (tail)->next = node; (tail) = (node); }
-#define exit_if_null(p) { if((p) == NULL) exit(-1); }
-#define exit_if_null_with_message(p, m) { if((p) == NULL) \
-        {fprintf(stderr, "%s\n", m); exit(-1);} }
+#define exit_if_fail(expr)                             do{ \
+            if(expr) { } else{                             \
+                fprintf(stderr,                            \
+                "file %s: line %d: assertion '%s' failed", \
+                __FILE__, __LINE__, #expr);                \
+                exit(1);                                   \
+            }; }while(0)
+
+#define exit_if_fail_with_message(expr, msg)           do{ \
+            if(expr) { } else{                             \
+                fprintf(stderr, msg);                      \
+                exit(1);                                   \
+            }; }while(0)
 
 typedef struct task_node_s task_node_t;
 typedef struct task_head_s task_head_t;
@@ -76,7 +86,7 @@ thread_pool_t *threadpool_create(int min, int max, int qsize)
 
     thread_pool_t *pool;
     pool = (thread_pool_t *)malloc(sizeof(thread_pool_t));
-    exit_if_null_with_message(pool, "threadpool_create() failed, out Of Memory!!!");
+    exit_if_fail_with_message(pool, "threadpool_create() failed, out Of Memory!!!");
 
     qsize = (qsize > 0 ? qsize : max*100);
     pthread_mutex_init(&(pool->mutex), NULL);
@@ -110,6 +120,7 @@ thread_pool_t *threadpool_create(int min, int max, int qsize)
 
     return pool;
 }
+
 static void add_worker(thread_pool_t *pool)
 {
     pthread_t tid;
@@ -126,7 +137,7 @@ static void add_worker(thread_pool_t *pool)
     if(worker->recycle == NULL)
     {
         worker->recycle = (worker_node_t *)malloc(sizeof(worker_node_t));
-        exit_if_null_with_message(worker->recycle, "add_worker() failed");
+        exit_if_fail_with_message(worker->recycle, "add_worker() failed");
         worker->recycle->next = NULL;
     }
     temp = worker->recycle;
@@ -135,9 +146,8 @@ static void add_worker(thread_pool_t *pool)
     temp->tid = tid;
     add_node_to_head(temp, worker->head);
     worker->cur++;
-
-    return;
 }
+
 static void del_worker(worker_head_t *worker, pthread_t tid)
 {
     register worker_node_t *p1 = NULL;
@@ -162,9 +172,8 @@ static void del_worker(worker_head_t *worker, pthread_t tid)
         add_node_to_head(p1, worker->recycle);
         if(worker->cur > 0) worker->cur--;
     }
-
-    return;
 }
+
 static void *do_work(void *owning_pool)
 {
     thread_pool_t *pool =(thread_pool_t *)owning_pool;
@@ -215,16 +224,16 @@ static void *do_work(void *owning_pool)
 
     return NULL;
 }
-int dispatch(thread_pool_t * from_me, task_fun task_here, void *arg, ...)
-{
-    thread_pool_t *pool = (thread_pool_t *)from_me;
 
-    int priority = NORMAL_PRI;
+int dispatch(thread_pool_t *pool, task_fun task_here, void *arg, ...)
+{
+    int priority;
     va_list ap;
     va_start(ap, arg);
     priority = va_arg(ap, int);
     va_end(ap);
-    printf("priority:%d", priority);
+    priority == EMG_PRI ? 1 : (priority = NORMAL_PRI);
+
     int rank = 0; char is_add = 1;
 
     //pthread_cleanup_push((task_fun)pthread_mutex_unlock,(void *) &pool->mutex);
@@ -264,9 +273,8 @@ int dispatch(thread_pool_t * from_me, task_fun task_here, void *arg, ...)
     return rank;
 }
 
-void threadpool_destroy(thread_pool_t *destroyme, int flag)
+void threadpool_destroy(thread_pool_t *pool, int flag)
 {
-    thread_pool_t *pool =(thread_pool_t *)destroyme;
     worker_node_t *wp;
     int oldtype;
     printf("cur threads:[%d]\n", pool->worker.cur);
@@ -301,8 +309,8 @@ void threadpool_destroy(thread_pool_t *destroyme, int flag)
 
     free(pool);
     printf("destroy_threadpool ok\n");
-    return;
 }
+
 static void free_worker(worker_head_t *worker)
 {
     worker_node_t *temp;
@@ -314,9 +322,8 @@ static void free_worker(worker_head_t *worker)
         worker->head = worker->head->next;
         free(temp);
     }
-
-    return;
 }
+
 static void free_task(task_head_t *task)
 {
     task_node_t *temp;
@@ -328,9 +335,8 @@ static void free_task(task_head_t *task)
         task->head = task->head->next;
         free(temp);
     }
-
-    return;
 }
+
 static int add_task(task_head_t *task, task_fun f1, void *a1)
 {
     register task_node_t * temp;
@@ -356,6 +362,7 @@ static int add_task(task_head_t *task, task_fun f1, void *a1)
 
     return ++task->avail;
 }
+
 static int get_task(task_head_t *task, task_fun *f1, void **a1)
 {
     register task_node_t *temp;

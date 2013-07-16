@@ -2,12 +2,12 @@ CFLAGS = -O2
 DEBUG  =
 LDFLAG =
 
-INC_PATH =
-LIB_PATH =
+INC_PATH = 
+LIB_PATH = 
 
 LIBS = -lpthread
 
-SRC  = log.c log_test.c thread_pool.c
+SRC  = thread_pool.c thread_pool_test.c
 OBJS = $(SRC:.c=.o)
 
 TARGET = test

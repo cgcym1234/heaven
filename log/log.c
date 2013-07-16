@@ -115,7 +115,7 @@ static void get_cur_date(char *str)
     gettimeofday(&tv, NULL);
     localtime_r(&(tv.tv_sec), &ctm);
 
-    sprintf(str, "%04d-%02d-%02d %02d:%02d:%02d", ctm.tm_year+1900,
+    sprintf(str, "%04d-%02d-%02d_%02d:%02d:%02d", ctm.tm_year+1900,
             ctm.tm_mon+1, ctm.tm_mday, ctm.tm_hour, ctm.tm_min, ctm.tm_sec);
 
     return;
@@ -281,7 +281,7 @@ int log_init(int level, const char *path, const char *name, int use_thread)
     if(log_handle.log_fp == NULL) return -1;
 
     log_handle.tpool = NULL;
-    if(use_thread) log_handle.tpool = create_threadpool(1, 1, 500000);
+    if(use_thread) log_handle.tpool = threadpool_create(1, 1, 500000);
 
     printf("log init ok, log_path:[%s], log_level:[%d]\n", path, level);
 
@@ -302,7 +302,7 @@ void log_set_level(int level)
 
 void log_close()
 {
-    if(log_handle.tpool) destroy_threadpool(log_handle.tpool, 0);
+    if(log_handle.tpool) threadpool_destroy(log_handle.tpool, 1);
     if(log_handle.log_fp) fclose(log_handle.log_fp);
     pthread_mutex_destroy(&log_handle.mtx);
     printf("log close ok\n");
